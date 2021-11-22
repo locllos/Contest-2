@@ -113,7 +113,7 @@ void printPath(vector<elem_t> path)
 
     for (int i = path.size() - 1; i > - 1; ++i)
     {
-        cout << path[i] +1 << '\n';
+        cout << path[i] + 1 << '\n';
     }
     cout << '\n';
 }

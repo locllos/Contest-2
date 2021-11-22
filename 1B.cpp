@@ -11,6 +11,8 @@ using std::cout;
 
 class IGraph
 {
+public:
+
     virtual void Input() = 0;
 };
 

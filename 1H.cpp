@@ -138,7 +138,7 @@ int getMaxDistance(IGraph& graph)
     return max_distance;
 }
 
-int getDistance(IGraph& graph, int start, int end)
+int getDistance(IGraph& graph, Vertex start, Vertex end)
 {   
     int max_distance = getMaxDistance(graph);
 
@@ -183,8 +183,8 @@ int main()
     size_t amount_edges = 0;
     cin >> amount_vertices >> amount_edges;       
     
-    int start = 0;
-    int end = 0;
+    Vertex start = 0;
+    Vertex end = 0;
     cin >> start >> end;
 
     int max_distance = 0;

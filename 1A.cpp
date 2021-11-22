@@ -14,71 +14,108 @@ typedef int elem_t;
 
 const elem_t start = -3802;
 
-void inputGraphByList(size_t amount_edges, 
-                      vector<vector<elem_t>>& graph)
+class IGraph
 {
-    elem_t vertex_a = 0;
-    elem_t vertex_b = 0;
-    for (size_t i = 0; i < amount_edges; ++i)
-    {   
-        cin >> vertex_a >> vertex_b;
+public:
 
-        graph[vertex_a - 1].push_back(vertex_b - 1);
-        graph[vertex_b - 1].push_back(vertex_a - 1);
-    }
-}
+    virtual void Input() = 0;
+};
 
-void makeUpPaths(elem_t start_vertex, 
-                 vector<vector<elem_t>>& graph,
+class Graph : public IGraph
+{
+private:
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+    vector<vector<elem_t>> graph;
+
+    void makeUpPaths(elem_t start_vertex, 
                  vector<bool>& visited, 
                  vector<elem_t>& parents)
-{
-    queue<elem_t> vertex_queue;
-
-    visited[start_vertex] = true;
-    parents[start_vertex] = start;
-    vertex_queue.push(start_vertex);
-    while (!vertex_queue.empty())
     {
-        size_t current_vertex = vertex_queue.front();
-        vertex_queue.pop();
-        for (size_t i = 0; i < graph[current_vertex].size(); ++i)
+        queue<elem_t> vertex_queue;
+
+        visited[start_vertex] = true;
+        parents[start_vertex] = start;
+        vertex_queue.push(start_vertex);
+        while (!vertex_queue.empty())
         {
-            size_t vertex_to = graph[current_vertex][i];
-            if (!visited[vertex_to])
+            size_t current_vertex = vertex_queue.front();
+            vertex_queue.pop();
+            for (size_t i = 0; i < graph[current_vertex].size(); ++i)
             {
-                visited[vertex_to] = true;
-                vertex_queue.push(vertex_to);
-                parents[vertex_to] = current_vertex;
+                size_t vertex_to = graph[current_vertex][i];
+                if (!visited[vertex_to])
+                {
+                    visited[vertex_to] = true;
+                    vertex_queue.push(vertex_to);
+                    parents[vertex_to] = current_vertex;
+                }
             }
         }
     }
-}
 
-//note: path must be exist!
-void theNearestPathToTarget(elem_t target_vertex,
-                            stack<elem_t>& path,
-                            vector<elem_t>& parents)
-{   
-    elem_t current_vertex = target_vertex;
-    while (current_vertex != start)
-    {
-        path.push(current_vertex);
-        current_vertex = parents[current_vertex];
-    }
-}
-
-void printPath(stack<elem_t> path)
-{   
-    cout << "\n" << path.size() - 1 << "\n";
-
-    while (!path.empty())
+    //note: path must be exist!
+    void theNearestPathToTarget(elem_t target_vertex,
+                                vector<elem_t>& path,
+                                vector<elem_t>& parents)
     {   
-        cout << path.top() + 1 << "\n";
-
-        path.pop();
+        elem_t current_vertex = target_vertex;
+        while (current_vertex != start)
+        {
+            path.push_back(current_vertex);
+            current_vertex = parents[current_vertex];
+        }
     }
-    cout << "\n";
+
+public:
+
+    explicit Graph(size_t amount_vertices, size_t amount_edges) 
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph(amount_vertices, vector<elem_t>())
+        {}
+    
+    void Input() override 
+    {
+        elem_t vertex_a = 0;
+        elem_t vertex_b = 0;
+        for (size_t i = 0; i < amount_edges_; ++i)
+        {   
+            cin >> vertex_a >> vertex_b;
+
+            graph[vertex_a - 1].push_back(vertex_b - 1);
+            graph[vertex_b - 1].push_back(vertex_a - 1);
+        }
+    }
+
+    vector<elem_t> getTheNearestPath(elem_t start_vertex, elem_t end_vertex)
+    {
+        vector<bool> visited(amount_vertices_);
+        vector<elem_t> parents(amount_vertices_);
+        vector<elem_t> path;
+
+        makeUpPaths(start_vertex, visited, parents);
+
+        if (visited[end_vertex - 1])
+        {
+            theNearestPathToTarget(end_vertex, path, parents);
+        }
+        return path;
+    }
+};
+
+
+void printPath(vector<elem_t> path)
+{   
+    cout << '\n' << path.size() - 1 << '\n';
+
+    for (int i = path.size() - 1; i > - 1; ++i)
+    {
+        cout << path[i] +1 << '\n';
+    }
+    cout << '\n';
 }
 
 void Processing()
@@ -91,25 +128,12 @@ void Processing()
     cin >> amount_vertices >> amount_edges;
     cin >> start_vertex >> target_vertex;
 
-    vector<vector<elem_t>> graph(amount_vertices);
-    vector<bool> visited(amount_vertices);
-    vector<elem_t> parents(amount_vertices);
-    stack<elem_t> path;
+    Graph graph(amount_vertices, amount_edges);
+    graph.Input();
 
-    inputGraphByList(amount_edges, graph);
+    vector<elem_t> path = graph.getTheNearestPath(start_vertex - 1, target_vertex - 1);
 
-    makeUpPaths(start_vertex - 1, graph, visited, parents);
-
-    if (!visited[target_vertex - 1])
-    {
-        cout << "\n-1\n";
-    }
-    else
-    {
-        theNearestPathToTarget(target_vertex - 1, path, parents);
-        printPath(path);
-    }
-
+    printPath(path);
 }
 
 int main()

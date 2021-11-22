@@ -8,99 +8,184 @@ using std::cin;
 using std::cout;
 using std::endl;
 
+using Vertex = int;
 
+//=======IGraph=======//
 
-typedef int elem_t;
- 
-void inputGraphByMatrix(size_t amount_edges, 
-                        vector<vector<elem_t>>& graph)
+enum Color
+{   
+    WHITE,
+    GRAY,
+    BLACK,
+};
+
+class IGraph
 {
-    elem_t vertex_a = 0;
-    elem_t vertex_b = 0;
-    for (size_t i = 0; i < amount_edges; ++i)
+public:
+
+    virtual void addEdge(const Vertex& from, const Vertex& to) = 0;
+    virtual const vector<Vertex>& getNeighbors(const Vertex& vertex) const = 0;
+    virtual size_t getAmountVertices() const = 0;
+    virtual size_t getAmountEdges() const = 0;
+};
+
+//=======ListGraph=======//
+
+class ListGraph : public IGraph
+{
+private:
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+    vector<vector<Vertex>> graph_;
+
+public:
+
+    explicit ListGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices_, vector<Vertex>())
+        {}
+    
+    void addEdge(const Vertex& from, const Vertex& to) override
     {
-        cin >> vertex_a >> vertex_b;
-
-        graph[vertex_a - 1][vertex_b - 1] = 1;
+        graph_[from].push_back(to);
     }
-}
 
-void inputGraphByList(size_t amount_edges, 
-                      vector<vector<elem_t>>& graph)
+    const vector<Vertex>& getNeighbors(const Vertex& vertex) const override
+    {
+        return graph_[vertex];
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======MatrixGraph=======//
+
+class MatrixGraph : public IGraph
 {
-    elem_t vertex_a = 0;
-    elem_t vertex_b = 0;
-    for (size_t i = 0; i < amount_edges; ++i)
+private:
+
+    vector<vector<Vertex>> graph_;
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+public:
+
+    explicit MatrixGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices, vector<Vertex>(amount_vertices, 0))
+    {   
+        Vertex vertex = 0;
+        for (auto& edges : graph_)
+        {
+            std::fill(begin(edges), end(edges), vertex++);
+        }
+    }
+
+    void addEdge(const Vertex& from, const Vertex& to) override
+    {   
+        graph_[from][to] = 1;
+    }
+
+    const vector<Vertex>& getNeighbors(const Vertex& vertex) const override
+    {
+        return graph_[vertex];
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======GraphAlgorithms=======//
+
+void inputGraph(IGraph& graph)
+{
+    Vertex vertex_a = 0;
+    Vertex vertex_b = 0;
+    for (size_t i = 0; i < graph.getAmountEdges(); ++i)
     {
         cin >> vertex_a >> vertex_b;    
 
-        graph[vertex_a - 1].push_back(vertex_b - 1);
+        graph.addEdge(vertex_a - 1, vertex_b - 1);
     }
 }
 
-bool DFS(elem_t start_vertex, vector<elem_t>& color, vector<vector<elem_t>>& graph, vector<elem_t>& answer)
+bool DFS(const IGraph& graph, const Vertex& start, vector<Color>& color, vector<Vertex>& cycle)
 {
-    color[start_vertex] = 1;
-    for (elem_t current_vertex : graph[start_vertex])
+    color[start] = GRAY;
+    for (Vertex current : graph.getNeighbors(start))
     {
-            if (!color[current_vertex])
-            {   
-                if (DFS(current_vertex, color, graph, answer))
-                {
-                    answer[current_vertex] = start_vertex;
-                    return true;
-                }
-            }
-            if (color[current_vertex] == 1)
-            {   
-                answer.push_back(start_vertex);
-                answer.push_back(current_vertex);
+        if (color[current] == WHITE)
+        {   
+            if (DFS(graph, current, color, cycle))
+            {
+                cycle[current] = start;
                 return true;
             }
+        }
+        if (color[current] == GRAY)
+        {   
+            cycle.push_back(start);
+            cycle.push_back(current);
+            return true;
+        }
     }
-    color[start_vertex] = 2;
+    color[start] = BLACK;
     
     return false;
 }
 
-void printAnswer(vector<elem_t>& answer)
+void printAnswer(vector<Vertex>& cycle)
 {   
-    elem_t start_vertex = answer.back();
-    answer.erase(answer.end() - 1);
-    elem_t end_vertex = answer.back();
-    answer.erase(answer.end() - 1);
-    
-    stack<elem_t> correct_cycle;    
-
-    correct_cycle.push(start_vertex + 1);
-    for (elem_t current_vertex = end_vertex; 
-         current_vertex != start_vertex && current_vertex > 0; 
-         current_vertex = answer[current_vertex])
-    {     
-        correct_cycle.push(current_vertex + 1);
-    }
-    while (!correct_cycle.empty())
+    for (int i = cycle.size() - 1; i > -1; --i)
     {
-        cout << correct_cycle.top() << " ";
-
-        correct_cycle.pop();
+        cout << cycle[i] << ' ';
     }
     cout << endl;
 }
 
-bool isCycled(size_t amount_vertices,
-              vector<elem_t>& color,
-              vector<vector<elem_t>>& graph,
-              vector<elem_t>& answer)
+vector<Vertex> getCorrectCycle(vector<Vertex>& cycle)
 {
-    for (size_t i = 0; i < amount_vertices; ++i)
+    vector<Vertex> correct_cycle;    
+
+    Vertex start = cycle.back();
+    cycle.erase(cycle.end() - 1);
+    Vertex end = cycle.back();
+    cycle.erase(cycle.end() - 1);
+
+    correct_cycle.push_back(start + 1);
+    for (Vertex current = end; 
+         current != start && current > 0; 
+         current = cycle[current])
+    {     
+        correct_cycle.push_back(current + 1);
+    }
+    return correct_cycle;
+}
+
+bool isCycled(const IGraph& graph,
+              vector<Vertex>& cycle)
+{   
+    vector<Color> color(graph.getAmountVertices(), WHITE);
+
+    bool is_cycled = false;
+    for (Vertex current = 0; current < graph.getAmountVertices(); ++current)
     {
-        if (!color[i] && DFS(i, color, graph, answer))
+        if ((color[current] == WHITE) && DFS(graph, current, color, cycle))
         {                
-            return true;
+            is_cycled = true;
+            
+            cycle = getCorrectCycle(cycle);
+
+            break;
         }
     }
-    return false;
+    return is_cycled;
 }
 
 void Processing()
@@ -109,16 +194,14 @@ void Processing()
     size_t amount_vertices = 0;
     cin >> amount_vertices >> amount_edges;
 
-    vector<vector<elem_t>> graph(amount_vertices);
-    vector<elem_t> color(amount_vertices);
-    vector<elem_t> answer(amount_vertices, -1);
+    ListGraph graph(amount_vertices, amount_edges);
+    inputGraph(graph);
 
-    inputGraphByList(amount_edges, graph);
-
-    if (isCycled(amount_vertices, color, graph, answer))
+    vector<Vertex> cycle;  
+    if (isCycled(graph, cycle))
     {
         cout << "YES" << endl;
-        printAnswer(answer);
+        printAnswer(cycle);
     }
     else
     {   

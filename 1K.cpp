@@ -97,7 +97,7 @@ public:
                 neighbors.push_back(to);
             }
         }
-        return neighbors
+        return neighbors;
     }
 
     size_t getAmountVertices() const {return amount_vertices_;};

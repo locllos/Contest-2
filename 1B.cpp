@@ -8,54 +8,95 @@ using std::stack;
 using std::cin;
 using std::cout;
 
-typedef int elem_t;
- 
-void inputGraphByMatrix(size_t amount_edges, 
-                        vector<vector<elem_t>>& graph)
+
+class IGraph
 {
-    elem_t vertex_a = 0;
-    elem_t vertex_b = 0;
-    for (size_t i = 0; i < amount_edges; ++i)
-    {   
-        cin >> vertex_a >> vertex_b;
+    virtual void Input() = 0;
+};
 
-        graph[vertex_a - 1][vertex_b - 1] = 1;
-        graph[vertex_b - 1][vertex_a - 1] = 1;
-    }
-}
-
-void inputGraphByList(size_t amount_edges, 
-                      vector<vector<elem_t>>& graph)
+class Graph : public IGraph
 {
-    elem_t vertex_a = 0;
-    elem_t vertex_b = 0;
-    for (size_t i = 0; i < amount_edges; ++i)
-    {   
-        cin >> vertex_a >> vertex_b;
+private:
 
-        graph[vertex_a - 1].push_back(vertex_b - 1);
-        graph[vertex_b - 1].push_back(vertex_a - 1);
-    }
-}
+    size_t amount_edges_;
+    size_t amount_vertices_;
 
-bool isSplitable(elem_t start_vertex, vector<elem_t>& color, vector<vector<elem_t>>& graph)
-{
-    size_t is_splitable = true;
-    for (elem_t current_vertex : graph[start_vertex])
+    vector<vector<int>> graph_;
+
+    enum Color
     {
-        if (color[current_vertex] == 0)
+        WHITE,
+        GRAY,
+        BLACK,
+
+        AMOUNT_COLORS,
+    };
+
+private:
+
+    bool isSplitable(int start_vertex, vector<Color>& color)
+    {
+        size_t is_splitable = true;
+        for (int current_vertex : graph_[start_vertex])
         {
-            color[current_vertex] = 3 - color[start_vertex];
-            is_splitable = isSplitable(current_vertex, color, graph); 
+            if (color[current_vertex] == WHITE)
+            {
+                color[current_vertex] = static_cast<Color>(AMOUNT_COLORS - color[start_vertex]);
+                is_splitable = isSplitable(current_vertex, color); 
+            }
+            else if (color[current_vertex] ==
+                     color[start_vertex])
+            {
+                is_splitable = false;
+            }
         }
-        else if (color[current_vertex] ==
-                 color[start_vertex])
+        return is_splitable;
+    }
+
+public:
+
+    explicit Graph(size_t amount_edges, size_t amount_vertices)
+        : amount_edges_(amount_edges)
+        , amount_vertices_(amount_vertices)
+        , graph_(amount_vertices_, vector<int>())
+        {}
+
+    void Input() override
+    {
+        int vertex_a = 0;
+        int vertex_b = 0;
+        for (size_t i = 0; i < amount_edges_; ++i)
+        {   
+            cin >> vertex_a >> vertex_b;
+
+            graph_[vertex_a - 1].push_back(vertex_b - 1);
+            graph_[vertex_b - 1].push_back(vertex_a - 1);
+        }
+    }
+
+    bool isSplitable()
+    {
+        vector<Color> color(amount_vertices_, WHITE);
+
+        bool is_splitable = true;
+        for (size_t v = 0; v < amount_vertices_; ++v)
+        {
+            if (color[v] == WHITE) 
+            {
+                color[v] = GRAY;
+                is_splitable = is_splitable && isSplitable(v, color);
+            }
+        }
+        if (amount_vertices_ == 1)
         {
             is_splitable = false;
         }
+
+        return is_splitable;
     }
-    return is_splitable;
-}
+
+};
+
 
 void Processing()
 {
@@ -63,25 +104,11 @@ void Processing()
     size_t amount_edges = 0;
     cin >> amount_vertices >> amount_edges;
 
-    vector<vector<elem_t>> graph(amount_vertices);
-    vector<elem_t> color(amount_vertices);
+    Graph graph(amount_vertices, amount_edges);
 
-    inputGraphByList(amount_edges, graph);
+    graph.Input();
 
-    bool is_splitable = true;
-    for (size_t v = 0; v < amount_vertices; ++v)
-    {
-        if (color[v] == 0) 
-        {
-            color[v] = 1;
-            is_splitable = is_splitable && isSplitable(v, color, graph);
-        }
-    }
-    if (amount_vertices == 1)
-    {
-        is_splitable = false;
-    }
-    cout << (is_splitable ? "YES" : "NO");
+    cout << (graph.isSplitable() ? "YES" : "NO");
 }
 
 int main()

@@ -15,114 +15,203 @@ using std::endl;
 using std::min;
 using std::sort;
 
-typedef int elem_t;
+const int kInf = (int)1e9;
 
-const elem_t inf = (elem_t)1e9;
-
-struct Vertex
-{
-    elem_t number;
-    elem_t parent;
-};
+using Vertex = int;
 
 struct Time
 {   
-    size_t& timer;
-    vector<elem_t>& entry;
-    vector<elem_t>& min_entry;
+    size_t timer;
+
+    vector<Vertex> entry;
+    vector<Vertex> min_entry;
 };
 
-using Graph = vector<vector<elem_t>>;
-
-void inputGraphByList(size_t amount_edges,
-                      Graph &graph)
+class IGraph
 {
-    elem_t vertex_a = 0;
-    elem_t vertex_b = 0;
-    bool skip = false;
-    for (size_t i = 0; i < amount_edges; ++i)
+public:
+
+    virtual void addEdge(const Vertex& from, const Vertex& to) = 0;
+    virtual vector<Vertex> getNeighbors(const Vertex& vertex) const = 0;
+    virtual size_t getAmountVertices() const = 0;
+    virtual size_t getAmountEdges() const = 0;
+};
+
+//=======ListGraph=======//
+
+class ListGraph : public IGraph
+{
+private:
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+    vector<vector<Vertex>> graph_;
+
+public:
+
+    explicit ListGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices_, vector<Vertex>())
+        {}
+    
+    void addEdge(const Vertex& from, const Vertex& to) override
     {
+        graph_[from].push_back(to);
+    }
+
+    vector<Vertex> getNeighbors(const Vertex& vertex) const override
+    {
+        return graph_[vertex];
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======MatrixGraph=======//
+
+class MatrixGraph : public IGraph
+{
+private:
+
+    vector<vector<Vertex>> graph_;
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+public:
+
+    explicit MatrixGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices, vector<Vertex>(amount_vertices, 0))
+        {}
+
+    void addEdge(const Vertex& from, const Vertex& to) override
+    {   
+        graph_[from][to] = 1;
+    }
+
+    vector<Vertex> getNeighbors(const Vertex& vertex) const override
+    {
+        vector<Vertex> neighbors;
+
+        for (Vertex to = 0; to < amount_vertices_; ++to)
+        {   
+            if (graph_[vertex][to] != 0)
+            {
+                neighbors.push_back(to);
+            }
+        }
+        return neighbors;
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======GraphAlgorithms=======//
+
+void inputGraph(IGraph& graph)
+{
+    Vertex vertex_a = 0;
+    Vertex vertex_b = 0;
+
+    for (Vertex current = 0; current < graph.getAmountEdges(); ++current)
+    {   
         cin >> vertex_a >> vertex_b;
 
-        graph[vertex_a - 1].push_back(vertex_b - 1);
-        graph[vertex_b - 1].push_back(vertex_a - 1);
+        graph.addEdge(vertex_a - 1, vertex_b - 1);
+        graph.addEdge(vertex_b - 1, vertex_a - 1);
     }
 }
 
 
-void DFS(Vertex vertex, Time time, vector<bool>& visited, Graph& graph, vector<bool>& cut_points)
+void DFS(const IGraph& graph, Time& time, 
+         vector<bool>& visited, vector<bool>& cut_points, 
+         Vertex parent, Vertex start)
 {   
-    visited[vertex.number] = true;
-    time.entry[vertex.number] = time.timer;
-    time.min_entry[vertex.number] = time.timer;
+    visited[start] = true;
+    time.entry[start] = time.timer;
+    time.min_entry[start] = time.timer;
+
     ++time.timer;
+    
     size_t unconnected_children = 0;
-    for (elem_t vertex_to : graph[vertex.number])
+    for (Vertex to : graph.getNeighbors(start))
     {   
-        if (vertex_to == vertex.parent)
+        if (to == parent)
         {
             continue;
         }
-        if (visited[vertex_to])
+        if (visited[to])
         {
-            time.min_entry[vertex.number] = min(time.min_entry[vertex.number], time.entry[vertex_to]);
+            time.min_entry[start] = min(time.min_entry[start], time.entry[to]);
         }
         else
         {
-            DFS({vertex_to, vertex.number}, time, visited, graph, cut_points);
-            time.min_entry[vertex.number] = min(time.min_entry[vertex.number], time.min_entry[vertex_to]);
-            if (vertex.parent != -1 && time.min_entry[vertex_to] >= time.entry[vertex.number])
+            DFS(graph, time, visited, cut_points, start, to);
+
+            time.min_entry[start] = min(time.min_entry[start], time.min_entry[to]);
+            
+            if (parent != -1 && time.min_entry[to] >= time.entry[start])
             {
-                cut_points[vertex.number] = true;
+                cut_points[start] = true;
             }
             ++unconnected_children;
         }
     }
-    if (vertex.parent == -1 && unconnected_children > 1)
+    if (parent == -1 && unconnected_children > 1)
     {
-        cut_points[vertex.number] = true;
+        cut_points[start] = true;
     }
 }
+
+vector<Vertex> getCutPoints(const IGraph& graph)
+{
+    vector<bool> is_cut_point(graph.getAmountVertices());
+    vector<bool> visited(graph.getAmountVertices(), false);
+
+    Time time = {0, vector<Vertex>(graph.getAmountVertices(), kInf), 
+                    vector<Vertex>(graph.getAmountVertices(), kInf)};
+    
+    for (Vertex current = 0; current < graph.getAmountVertices(); ++current)
+    {
+        if (!visited[current])
+        {   
+            DFS(graph, time, visited, is_cut_point, -1, current);
+            time.timer = 0;
+        }
+    }
+
+    vector<Vertex> cut_points;
+    for (Vertex current = 0; current < graph.getAmountVertices(); ++current)
+    {
+        if (is_cut_point[current])
+        {   
+            cut_points.push_back(current);
+        }
+    }
+    return cut_points;
+}
+
 void Processing()
 {
     size_t amount_vertices = 0;
     size_t amount_edges = 0;
     cin >> amount_vertices >> amount_edges;
 
-    Graph graph(amount_vertices);
-    inputGraphByList(amount_edges, graph);
+    ListGraph graph(amount_vertices, amount_edges);
+    inputGraph(graph);
 
-    size_t timer = 0;
-    vector<bool> cut_points(amount_vertices);
-    vector<bool> visited(amount_vertices, false);
-    vector<elem_t> min_entry_time(amount_vertices, inf);
-    vector<elem_t> entry_time(amount_vertices, inf);
+    vector<Vertex> cut_points = getCutPoints(graph);
 
-    for (int i = 0; i < amount_vertices; ++i)
+    cout << cut_points.size() << endl;
+    for (auto& cut_point : cut_points)
     {
-        if (!visited[i])
-        {
-            DFS({i, -1}, {timer, entry_time, min_entry_time}, visited, graph, cut_points);
-            timer = 0;
-        }
-    }
-
-    size_t amount_cut_point = 0;
-    for (size_t i = 0; i < amount_vertices; ++i)
-    {
-        if (cut_points[i])
-        {
-            ++amount_cut_point;
-        }
-    }
-
-    cout << amount_cut_point << endl;
-    for (size_t i = 0; i < amount_vertices; ++i)
-    {
-        if (cut_points[i])
-        {   
-            cout << i + 1 << endl;
-        }
+        cout << cut_point + 1 << '\n';
     }
 }
 

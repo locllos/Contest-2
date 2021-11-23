@@ -1,25 +1,23 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <stack>
+#include <queue>
 #include <algorithm>
-#include <set>
 
-using std::set;
+using std::string;
+using std::queue;
+using std::stack;
 using std::vector;
 using std::cin;
 using std::cout;
 using std::endl;
 using std::min;
 using std::sort;
-using std::pair;
 
-const int inf = (int)1e9;
+const int kInf = (int)1e9;
 
-struct Vertex
-{
-    int number;
-    int parent;
-};
+using Vertex = int;
 
 enum BridgeType
 {
@@ -28,106 +26,149 @@ enum BridgeType
     MULTI_EDGE,
 };
 
-struct Edge
-{
-    int from;
-    int to;
-
-    int number;
-
-    Edge(int init_from, int init_to, int init_number) 
-        : from(init_from)
-        , to(init_to)
-        , number(init_number)
-        {}
-
-    Edge(const Edge& other)
-        : from(other.from)
-        , to(other.to)
-        , number(other.number)
-        {}
-
-    bool operator==(const Edge& other)
-    {
-        return number == other.number && 
-               from   == other.from;
-    }
-
-    bool operator<(const Edge& other)
-    {
-        return  number < other.number ||
-               (number == other.number && from < other.from);
-    }
-
-    bool operator>(const Edge& other)
-    {
-        return  number > other.number ||
-               (number == other.number && from > other.from);
-    }
-    bool operator<=(const Edge& other)
-    {
-        return  number <= other.number ||
-               (number == other.number && from <= other.from);
-    }
-
-    bool operator>=(const Edge& other)
-    {
-        return  number >= other.number ||
-               (number == other.number && from >= other.from);
-    }
-
-    bool operator!=(const Edge& other)
-    {
-        return !(*this == other);
-    }
-};
-
 struct Time
 {   
-    size_t& timer;
-    vector<int>& entry;
-    vector<int>& min_entry;
+    size_t timer;
+
+    vector<Vertex> entry;
+    vector<Vertex> min_entry;
 };
 
-
-using Graph = vector<vector<Edge>>;
-
-void inputGraphByList(size_t amount_edges, Graph& graph)
+struct Edge
 {
-    int vertex_a = 0;
-    int vertex_b = 0;
+    Vertex from;
+    Vertex to;
 
-    for (int i = 0; i < static_cast<int>(amount_edges); ++i)
+    int number;
+};
+
+class IGraph
+{
+public:
+
+    virtual void addEdge(const Vertex& from, const Vertex& to, int number) = 0;
+    virtual vector<Edge> getNeighbors(const Vertex& vertex) const = 0;
+    virtual size_t getAmountVertices() const = 0;
+    virtual size_t getAmountEdges() const = 0;
+};
+
+//=======ListGraph=======//
+
+class ListGraph : public IGraph
+{
+private:
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+    vector<vector<Edge>> graph_;
+
+public:
+
+    explicit ListGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices_, vector<Edge>())
+        {}
+    
+    void addEdge(const Vertex& from, const Vertex& to, int number) override
     {
+        graph_[from].push_back({from, to, number});
+    }
+
+    vector<Edge> getNeighbors(const Vertex& vertex) const override
+    {
+        return graph_[vertex];
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======MatrixGraph=======//
+
+class MatrixGraph : public IGraph
+{
+private:
+
+    vector<vector<Vertex>> graph_;
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+public:
+
+    explicit MatrixGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices, vector<Vertex>(amount_vertices, -1))
+        {}
+
+    void addEdge(const Vertex& from, const Vertex& to, int number) override
+    {   
+        graph_[from][to] = number;
+    }
+
+    vector<Edge> getNeighbors(const Vertex& vertex) const override
+    {
+        vector<Edge> neighbors;
+
+        for (Vertex to = 0; to < amount_vertices_; ++to)
+        {   
+            if (graph_[vertex][to] != -1)
+            {
+                neighbors.push_back({vertex, to, graph_[vertex][to]});
+            }
+        }
+        return neighbors;
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======GraphAlgorithms=======//
+
+void inputGraph(IGraph& graph)
+{
+    Vertex vertex_a = 0;
+    Vertex vertex_b = 0;
+
+    for (int i = 0; i < graph.getAmountEdges(); ++i)
+    {   
         cin >> vertex_a >> vertex_b;
 
-        graph[vertex_a - 1].push_back({vertex_a - 1, vertex_b - 1, i});
-        graph[vertex_b - 1].push_back({vertex_b - 1, vertex_a - 1, i});
+        graph.addEdge(vertex_a - 1, vertex_b - 1, i);
+        graph.addEdge(vertex_b - 1, vertex_a - 1, i);
     }
 }
 
-void DFS(Vertex vertex, Time time, vector<bool>& visited, Graph& graph, vector<Edge>& bridges)
+
+void DFS(const IGraph& graph, Time& time, 
+         vector<bool>& visited, vector<Edge>& bridges, 
+         Vertex parent, Vertex start)
 {   
-    visited[vertex.number] = true;
-    time.entry[vertex.number] = time.timer;
-    time.min_entry[vertex.number] = time.timer;
+    visited[start] = true;
+
+    time.entry[start] = time.timer;
+    time.min_entry[start] = time.timer;
     ++time.timer;
 
-    for (auto next : graph[vertex.number])
+    for (auto& next : graph.getNeighbors(start))
     {   
-        if (next.to == vertex.parent)
+        if (next.to == parent)
         {
             continue;
         }
         if (visited[next.to])
         {
-            time.min_entry[vertex.number] = min(time.min_entry[vertex.number], time.entry[next.to]);
+            time.min_entry[start] = min(time.min_entry[start], time.entry[next.to]);
         }
         else
         {
-            DFS({next.to, vertex.number}, time, visited, graph, bridges);
-            time.min_entry[vertex.number] = min(time.min_entry[vertex.number], time.min_entry[next.to]);
-            if (time.min_entry[next.to] > time.entry[vertex.number])
+            DFS(graph, time, visited, bridges, start, next.to);
+            time.min_entry[start] = min(time.min_entry[start], time.min_entry[next.to]);
+            if (time.min_entry[next.to] > time.entry[start])
             {
                 bridges.push_back(next);
             }
@@ -135,7 +176,43 @@ void DFS(Vertex vertex, Time time, vector<bool>& visited, Graph& graph, vector<E
     }
 }
 
+vector<Edge> getBridges(const IGraph& graph)
+{
+    vector<bool> is_bridge(graph.getAmountVertices());
+    vector<bool> visited(graph.getAmountVertices(), false);
+    Time time = {0, vector<Vertex>(graph.getAmountVertices(), kInf), 
+                    vector<Vertex>(graph.getAmountVertices(), kInf)};
+    
+    vector<Edge> bridges;
+    for (Vertex current = 0; current < static_cast<int>(graph.getAmountVertices()); ++current)
+    {
+        if (!visited[current])
+        {
+            DFS(graph, time, visited, bridges, -1, current);
+            time.timer = 0;
+        }
+    }
 
+    vector<Edge> correct_bridges;
+    vector<BridgeType> bridge_type(graph.getAmountVertices(), SIMPLE_EDGE);
+    for (auto& bridge : bridges)
+    {
+        for (auto& edge : graph.getNeighbors(bridge.from))
+        {
+            if (edge.to == bridge.to && bridge_type[bridge.number] == SIMPLE_EDGE)
+            {  
+                correct_bridges.push_back(edge);
+                bridge_type[edge.number] = BRIDGE;
+
+            }
+            else if (edge.to == bridge.to && bridge_type[bridge.number] == BRIDGE)
+            {
+                bridge_type[bridge.number] = MULTI_EDGE;
+            }
+        }
+    }
+    return correct_bridges;
+}
 
 void Processing()
 {
@@ -143,50 +220,15 @@ void Processing()
     size_t amount_edges = 0;
     cin >> amount_vertices >> amount_edges;
 
-    Graph graph(amount_vertices);
-    inputGraphByList(amount_edges, graph);
+    ListGraph graph(amount_vertices, amount_edges);
+    inputGraph(graph);
 
-    size_t timer = 0;
-    vector<Edge> bridges;
-    vector<bool> visited(amount_vertices, false);
-    vector<int> min_entry_time(amount_vertices, inf);
-    vector<int> entry_time(amount_vertices, inf);
+    vector<Edge> bridges = getBridges(graph);
 
-    for (int i = 0; i < static_cast<int>(amount_vertices); ++i)
-    {
-        if (!visited[i])
-        {
-            DFS({i, -1}, {timer, entry_time, min_entry_time}, visited, graph, bridges);
-            timer = 0;
-        }
-    }
-
-    size_t amount_bridges = 0;
-    vector<BridgeType> are_bridge(amount_edges, SIMPLE_EDGE);
+    cout << bridges.size() << endl;
     for (auto& bridge : bridges)
     {
-        for (auto& edge : graph[bridge.from])
-        {
-            if (edge.to == bridge.to && are_bridge[bridge.number] == SIMPLE_EDGE)
-            {   
-                ++amount_bridges;
-                are_bridge[edge.number] = BRIDGE;
-            }
-            else if (edge.to == bridge.to && are_bridge[bridge.number] == BRIDGE)
-            {
-                --amount_bridges;
-                are_bridge[bridge.number] = MULTI_EDGE;
-            }
-        }
-    }
-
-    cout << amount_bridges << endl;
-    for (size_t i = 0; i < amount_edges; ++i)
-    {
-        if (are_bridge[i] == BRIDGE)
-        {
-            cout << i + 1 << endl;
-        }
+        cout << bridge.number + 1 << '\n';
     }
 }
 

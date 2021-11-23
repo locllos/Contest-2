@@ -6,7 +6,9 @@ using std::cin;
 using std::cout;
 using std::endl;
 
-const int NONE = (int)10e9;
+const int kNone = (int)10e9;
+
+using Vertex = int;
 
 struct TraverseInfo
 {
@@ -15,17 +17,100 @@ struct TraverseInfo
     int weak_component;
 };
 
-using Graph = vector<vector<int>>;
+class IGraph
+{
+public:
 
-void inputGraphByList(Graph& graph)
+    virtual void addEdge(const Vertex& from, const Vertex& to) = 0;
+    virtual const vector<Vertex>& getNeighbors(const Vertex& vertex) const = 0;
+    virtual size_t getAmountVertices() const = 0;
+    virtual size_t getAmountEdges() const = 0;
+};
+
+//=======ListGraph=======//
+
+class ListGraph : public IGraph
+{
+private:
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+    vector<vector<Vertex>> graph_;
+
+public:
+
+    explicit ListGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices_, vector<Vertex>())
+        {}
+    
+    void addEdge(const Vertex& from, const Vertex& to) override
+    {
+        graph_[from].push_back(to);
+    }
+
+    const vector<Vertex>& getNeighbors(const Vertex& vertex) const override
+    {
+        return graph_[vertex];
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======MatrixGraph=======//
+
+class MatrixGraph : public IGraph
+{
+private:
+
+    vector<vector<Vertex>> graph_;
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+public:
+
+    explicit MatrixGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices, vector<Vertex>(amount_vertices, 0))
+    {   
+        Vertex vertex = 0;
+        for (auto& edges : graph_)
+        {
+            std::fill(begin(edges), end(edges), vertex++);
+        }
+    }
+
+    void addEdge(const Vertex& from, const Vertex& to) override
+    {   
+        graph_[from][to] = 1;
+    }
+
+    const vector<Vertex>& getNeighbors(const Vertex& vertex) const override
+    {
+        return graph_[vertex];
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======GraphAlgorithms=======//
+
+
+void inputGraphByList(const IGraph& graph)
 {
     int vertex = 0;
-    int amount_vertices = graph.size();
-    for (int i = 0; i < amount_vertices; ++i)
+    int amount_vertices = graph.getAmountVertices();
+    for (Vertex current = 0; current < amount_vertices; ++current)
     {
         cin >> vertex;    
 
-        graph[i].push_back(vertex - 1);
+        graph[current].push_back(vertex - 1);
     }
 }
 
@@ -76,7 +161,7 @@ int main()
     inputGraphByList(graph);
 
     int amount_weak_components = 0;
-    vector<TraverseInfo> traverse_information(amount_vertices, {false, NONE});
+    vector<TraverseInfo> traverse_information(amount_vertices, {false, kNone});
     for (size_t i = 0; i < amount_vertices; ++i)
     {
         if(!traverse_information[i].visited)

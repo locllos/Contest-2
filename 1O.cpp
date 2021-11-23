@@ -12,12 +12,15 @@ using std::cin;
 using std::cout;
 using std::endl;
 
+using Vertex = int;
+
 enum ArrowColor
 {
     RED = 'R', 
     BLUE = 'B',
 };
 
+// color is too boring
 enum VisitType
 {
     VIRGIN,
@@ -25,49 +28,126 @@ enum VisitType
     USED,
 };
 
-struct Edge
+class IGraph
 {
-    int from;
-    int to;
+public:
 
-    ArrowColor color;
+    virtual void addEdge(const Vertex& from, const Vertex& to) = 0;
+    virtual vector<Vertex> getNeighbors(const Vertex& vertex) const = 0;
+    virtual size_t getAmountVertices() const = 0;
+    virtual size_t getAmountEdges() const = 0;
 };
 
-using Graph = vector<vector<int>>;
+//=======ListGraph=======//
+
+class ListGraph : public IGraph
+{
+private:
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+    vector<vector<Vertex>> graph_;
+
+public:
+
+    explicit ListGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices_, vector<Vertex>())
+        {}
+    
+    void addEdge(const Vertex& from, const Vertex& to) override
+    {
+        graph_[from].push_back(to);
+    }
+
+    vector<Vertex> getNeighbors(const Vertex& vertex) const override
+    {
+        return graph_[vertex];
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======MatrixGraph=======//
+
+class MatrixGraph : public IGraph
+{
+private:
+
+    vector<vector<Vertex>> graph_;
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+public:
+
+    explicit MatrixGraph(size_t amount_vertices, size_t amount_edges)
+        : amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices, vector<Vertex>(amount_vertices, 0))
+        {}
+
+    void addEdge(const Vertex& from, const Vertex& to) override
+    {   
+        graph_[from][to] = 1;
+    }
+
+    vector<Vertex> getNeighbors(const Vertex& vertex) const override
+    {
+        vector<Vertex> neighbors;
+
+        for (Vertex to = 0; to < amount_vertices_; ++to)
+        {   
+            if (graph_[vertex][to] != 0)
+            {
+                neighbors.push_back(to);
+            }
+        }
+        return neighbors;
+    }
+
+    size_t getAmountVertices() const {return amount_vertices_;};
+    size_t getAmountEdges() const {return amount_edges_;};
+};
+
+//=======GraphAlgorithms=======//
 
 // reverse directions of red arrows while inputing graph
-void specialInput(Graph& graph, size_t amount_numbers)
+void specialInput(IGraph& graph)
 {   
     string color_arrows({});
-    for (int current = 0; current < static_cast<int>(amount_numbers) - 1; ++current)
+    for (Vertex current = 0; current < static_cast<int>(graph.getAmountVertices()) - 1; ++current)
     {
         cin >> color_arrows;
         
         int amount_arrows = color_arrows.size();
-        for (int next = current + 1; next < current + amount_arrows + 1; ++next)
+        for (Vertex next = current + 1; next < current + amount_arrows + 1; ++next)
         {
             switch (color_arrows[next - current - 1])
             {
                 case RED:
-                    graph[next].push_back(current);
+                    graph.addEdge(next, current);
                     break;
 
                 case BLUE:
-                    graph[current].push_back(next);
+                    graph.addEdge(current, next);
                     break;
             }
         }
     }
 }
 
-bool isCyclic(Graph& graph, vector<VisitType>& visit_log, int start_vertex)
+bool DFS(const IGraph& graph, vector<VisitType>& visit_log, Vertex start)
 {
-    visit_log[start_vertex] = TOUCHED;
-    for (int vertex_to : graph[start_vertex])
+    visit_log[start] = TOUCHED;
+    for (Vertex vertex_to : graph.getNeighbors(start))
     {
             if (visit_log[vertex_to] == VIRGIN)
             {   
-                if (isCyclic(graph, visit_log, vertex_to))
+                if (DFS(graph, visit_log, vertex_to))
                 {
                     return true;
                 }
@@ -77,29 +157,37 @@ bool isCyclic(Graph& graph, vector<VisitType>& visit_log, int start_vertex)
                 return true;
             }
     }
-    visit_log[start_vertex] = USED;
+    visit_log[start] = USED;
 
     return false;
 }
+
+bool isCyclic(const IGraph& graph)
+{
+    vector<VisitType> visit_log(graph.getAmountVertices(), VIRGIN);
+
+    bool is_cyclic = false;
+    for (Vertex current = 0; current < graph.getAmountVertices(); ++current)
+    {
+        if (visit_log[current] == VIRGIN)
+        {
+            is_cyclic = is_cyclic || DFS(graph, visit_log, current);
+        }
+    }
+
+    return is_cyclic;
+}
+
 void Proccesing()
 {
     size_t amount_numbers = 0;
     cin >> amount_numbers;
 
-    Graph graph(amount_numbers);
-    specialInput(graph, amount_numbers);
+    ListGraph graph(amount_numbers, 0);
+    specialInput(graph);
 
-    vector<VisitType> visit_log(amount_numbers, VIRGIN);
 
-    bool is_cyclic = false;
-    for (int current_number = 0; current_number < amount_numbers; ++current_number)
-    {
-        if (visit_log[current_number] == VIRGIN)
-        {
-            is_cyclic = is_cyclic || isCyclic(graph, visit_log, current_number);
-        }
-    }
-    cout << (is_cyclic ? "NO" : "YES") << endl;
+    cout << (isCyclic(graph) ? "NO" : "YES") << endl;
 }
 
 int main()

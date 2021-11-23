@@ -79,13 +79,7 @@ public:
         : amount_vertices_(amount_vertices)
         , amount_edges_(amount_edges)
         , graph_(amount_vertices, vector<Vertex>(amount_vertices, 0))
-    {   
-        Vertex vertex = 0;
-        for (auto& edges : graph_)
-        {
-            std::fill(begin(edges), end(edges), vertex++);
-        }
-    }
+        {}
 
     void addEdge(const Vertex& from, const Vertex& to) override
     {   
@@ -94,7 +88,16 @@ public:
 
     const vector<Vertex>& getNeighbors(const Vertex& vertex) const override
     {
-        return graph_[vertex];
+        vector<Vertex> neighbors;
+
+        for (Vertex to = 0; to < amount_vertices_; ++to)
+        {   
+            if (graph_[vertex][to] != 0)
+            {
+                neighbors.push_back(to);
+            }
+        }
+        return neighbors
     }
 
     size_t getAmountVertices() const {return amount_vertices_;};

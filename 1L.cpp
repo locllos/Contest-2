@@ -22,7 +22,7 @@ class IGraph
 public:
 
     virtual void addEdge(const Vertex& from, const Vertex& to) = 0;
-    virtual const vector<Vertex>& getNeighbors(const Vertex& vertex) const = 0;
+    virtual vector<Vertex> getNeighbors(const Vertex& vertex) const = 0;
     virtual size_t getAmountVertices() const = 0;
     virtual size_t getAmountEdges() const = 0;
 };
@@ -51,7 +51,7 @@ public:
         graph_[from].push_back(to);
     }
 
-    const vector<Vertex>& getNeighbors(const Vertex& vertex) const override
+    vector<Vertex> getNeighbors(const Vertex& vertex) const override
     {
         return graph_[vertex];
     }
@@ -77,22 +77,25 @@ public:
         : amount_vertices_(amount_vertices)
         , amount_edges_(amount_edges)
         , graph_(amount_vertices, vector<Vertex>(amount_vertices, 0))
-    {   
-        Vertex vertex = 0;
-        for (auto& edges : graph_)
-        {
-            std::fill(begin(edges), end(edges), vertex++);
-        }
-    }
+        {}
 
     void addEdge(const Vertex& from, const Vertex& to) override
     {   
         graph_[from][to] = 1;
     }
 
-    const vector<Vertex>& getNeighbors(const Vertex& vertex) const override
+    vector<Vertex> getNeighbors(const Vertex& vertex) const override
     {
-        return graph_[vertex];
+        vector<Vertex> neighbors;
+
+        for (Vertex to = 0; to < amount_vertices_; ++to)
+        {   
+            if (graph_[vertex][to] != 0)
+            {
+                neighbors.push_back(to);
+            }
+        }
+        return neighbors;
     }
 
     size_t getAmountVertices() const {return amount_vertices_;};
@@ -102,15 +105,15 @@ public:
 //=======GraphAlgorithms=======//
 
 
-void inputGraphByList(const IGraph& graph)
+void inputGraph(IGraph& graph)
 {
-    int vertex = 0;
+    Vertex vertex = 0;
     int amount_vertices = graph.getAmountVertices();
     for (Vertex current = 0; current < amount_vertices; ++current)
     {
         cin >> vertex;    
 
-        graph[current].push_back(vertex - 1);
+        graph.addEdge(current, vertex - 1);
     }
 }
 
@@ -119,14 +122,15 @@ int Indicator(bool bool_expr)
     return bool_expr == true;
 }
 
-bool isNewWeakComponent(Graph& graph, vector<TraverseInfo>& traverse_information, 
-                        int current_vertex, int weak_component_number)
+
+bool isNewWeakComponent(const IGraph& graph, vector<TraverseInfo>& traverse_information, 
+                        Vertex current, int weak_component_number)
 {   
-    traverse_information[current_vertex].visited = true;
+    traverse_information[current].visited = true;
     
     int old_weak_component = 0;
     bool is_new_weak_component = true;
-    for (int next : graph[current_vertex])
+    for (Vertex next : graph.getNeighbors(current))
     {
         if (!traverse_information[next].visited) 
         {   
@@ -142,27 +146,21 @@ bool isNewWeakComponent(Graph& graph, vector<TraverseInfo>& traverse_information
     }
     if (!is_new_weak_component)
     {
-         traverse_information[current_vertex].weak_component = old_weak_component;
+         traverse_information[current].weak_component = old_weak_component;
     }
     else
     {
-        traverse_information[current_vertex].weak_component = 
-                                            weak_component_number + 1;
+        traverse_information[current].weak_component = weak_component_number + 1;
     }
     return is_new_weak_component;
 }   
 
-int main()
-{   
-    size_t amount_vertices = 0;
-    cin >> amount_vertices;
 
-    Graph graph(amount_vertices);
-    inputGraphByList(graph);
-
-    int amount_weak_components = 0;
-    vector<TraverseInfo> traverse_information(amount_vertices, {false, kNone});
-    for (size_t i = 0; i < amount_vertices; ++i)
+size_t getAmountWeakComponents(const IGraph& graph)
+{
+    size_t amount_weak_components = 0;
+    vector<TraverseInfo> traverse_information(graph.getAmountVertices(), {false, kNone});
+    for (size_t i = 0; i < graph.getAmountVertices(); ++i)
     {
         if(!traverse_information[i].visited)
         {
@@ -172,7 +170,19 @@ int main()
             } 
         }
     }
-    cout << amount_weak_components << endl;
+
+    return amount_weak_components;
+}
+
+int main()
+{   
+    size_t amount_vertices = 0;
+    cin >> amount_vertices;
+
+    ListGraph graph(amount_vertices, amount_vertices);
+    inputGraph(graph);
+
+    cout << getAmountWeakComponents(graph) << endl;
 
     return 0;
 }

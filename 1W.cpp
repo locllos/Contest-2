@@ -10,29 +10,95 @@ using std::cin;
 using std::cout;
 using std::endl;
 
-typedef int elem_t;
+using Vertex = int;
 
-void InputPathToGraphByList(size_t amount_edges, vector<list<elem_t>>& graph, vector<bool>& is_isolated) 
+enum Color
 {
-    elem_t vertex_a = 0;
-    elem_t vertex_b = 0;
+    WHITE,
+    GRAY,
+    BLACK,
+};
 
-    cin >> vertex_a;
-    for (size_t i = 0; i < amount_edges; ++i) 
-    {
-        cin >> vertex_b;
+class IGraph
+{
+public:
 
-        graph[vertex_a - 1].push_back(vertex_b - 1);
-        is_isolated[vertex_a - 1] = false;
-        is_isolated[vertex_b - 1] = false;
+    IGraph() = default;
 
-        vertex_a = vertex_b;
+    virtual void addEdge(const Vertex& from, const Vertex& to) = 0;
+    virtual bool hasEdges(const Vertex& vertex) = 0;
+    virtual std::_List_iterator<Vertex> deleteEdge(const Vertex& from, const Vertex& to) = 0;
+    virtual std::_List_iterator<Vertex> deleteEdge(const Vertex& from, std::_List_iterator<Vertex> edge) = 0;
+    virtual list<Vertex> getNeighbors(const Vertex& vertex) const = 0;
+    virtual size_t getAmountVertices() const = 0;
+    virtual size_t getAmountEdges() const = 0;
+};
+
+//=======ListGraph=======//
+
+class ListGraph : public IGraph
+{
+private:
+
+    size_t amount_vertices_;
+    size_t amount_edges_;
+
+    vector<list<Vertex>> graph_;
+
+public:
+
+    explicit ListGraph(size_t amount_vertices, size_t amount_edges)
+        : IGraph::IGraph()
+        , amount_vertices_(amount_vertices)
+        , amount_edges_(amount_edges)
+        , graph_(amount_vertices_, list<Vertex>())
+        {}
+    
+    std::_List_iterator<Vertex> deleteEdge(const Vertex& from, const Vertex& to) override
+    {   
+        auto iter = graph_[from].begin();
+        while (iter != graph_[from].end())
+        {
+            if (*iter == to)
+            {
+                --amount_edges_;
+                return graph_[from].erase(iter);
+            }
+            ++iter;
+        }
+        return graph_[from].end();
     }
-}
 
-elem_t GetNotIsolatedVertex(vector<bool>& is_isolated)
+    std::_List_iterator<Vertex> deleteEdge(const Vertex& from, std::_List_iterator<Vertex> edge) override
+    {   
+        return graph_[from].erase(edge);
+    }
+
+    void addEdge(const Vertex& from, const Vertex& to) override
+    {
+        graph_[from].push_back(to);
+        ++amount_edges_;
+    }
+
+    list<Vertex> getNeighbors(const Vertex& vertex) const override
+    {
+        return graph_[vertex];
+    }
+
+    bool hasEdges(const Vertex& vertex)
+    {
+        return !graph_[vertex].empty();
+    }
+
+    size_t getAmountVertices() const override {return amount_vertices_;};
+    size_t getAmountEdges() const override {return amount_edges_;};
+};
+
+//=======GraphAlgorithms=======//
+
+Vertex GetNotIsolatedVertex(vector<bool>& is_isolated)
 {
-    for (elem_t i = 0; i < static_cast<elem_t>(is_isolated.size()); ++i)
+    for (Vertex i = 0; i < static_cast<Vertex>(is_isolated.size()); ++i)
     {
         if (!is_isolated[i])
         {
@@ -42,11 +108,11 @@ elem_t GetNotIsolatedVertex(vector<bool>& is_isolated)
     return 0;
 }
 
-void DFS(size_t start_vertex, vector<list<elem_t>>& graph, vector<bool>& visited)
+void DFS(Vertex start, IGraph& graph, vector<bool>& visited)
 {
-    visited[start_vertex] = true;
+    visited[start] = true;
 
-    for (auto vertex_to : graph[start_vertex])
+    for (auto vertex_to : graph.getNeighbors(start))
     {
         if (!visited[vertex_to])
         {
@@ -56,13 +122,13 @@ void DFS(size_t start_vertex, vector<list<elem_t>>& graph, vector<bool>& visited
 }
 
 
-bool IsEuler(vector<list<elem_t>>& graph, vector<bool>& is_isolated)
+bool IsEuler(IGraph& graph, vector<bool>& is_isolated)
 {
-    vector<bool> visited(graph.size(), false);
+    vector<bool> visited(graph.getAmountVertices(), false);
 
     DFS(GetNotIsolatedVertex(is_isolated), graph, visited);
 
-    for (size_t i = 0; i < graph.size(); ++i)
+    for (size_t i = 0; i < graph.getAmountVertices(); ++i)
     {
         if (!visited[i] && !is_isolated[i])
         {
@@ -72,17 +138,35 @@ bool IsEuler(vector<list<elem_t>>& graph, vector<bool>& is_isolated)
     return true;
 }
 
-void MakeEulerPath(elem_t start_vertex, vector<list<elem_t>>& graph, stack<elem_t>& euler_path)
+void MakeEulerPath(Vertex start, IGraph& graph, vector<Vertex>& euler_path)
 {
-    size_t vertex_to = 0;
-    auto edge = graph[start_vertex].begin();
-    while (!graph[start_vertex].empty())
+    Vertex vertex_to = 0;
+    auto edge = graph.getNeighbors(start).begin();
+    while (graph.hasEdges(start))
     {
         vertex_to = *edge;
-        edge = graph[start_vertex].erase(edge);
+        edge = graph.deleteEdge(start, edge);
         MakeEulerPath(vertex_to, graph, euler_path);
     }
-    euler_path.push(start_vertex);
+    euler_path.push_back(start);
+}
+
+void InputPathToGraphByList(size_t amount_edges, IGraph& graph, vector<bool>& is_isolated) 
+{
+    Vertex vertex_a = 0;
+    Vertex vertex_b = 0;
+
+    cin >> vertex_a;
+    for (size_t i = 0; i < amount_edges; ++i) 
+    {
+        cin >> vertex_b;
+
+        graph.addEdge(vertex_a - 1, vertex_b - 1);
+        is_isolated[vertex_a - 1] = false;
+        is_isolated[vertex_b - 1] = false;
+
+        vertex_a = vertex_b;
+    }
 }
 
 void Processing()
@@ -97,11 +181,11 @@ void Processing()
         return;
     }
 
-    size_t amount_edges = 0;
-    vector<list<elem_t>> graph(amount_vertices);
+    ListGraph graph(amount_vertices, 0);
     vector<bool> is_isolated(amount_vertices, true);
     for (size_t i = 0; i < amount_paths; ++i)
     {
+        size_t amount_edges = 0;
         cin >> amount_edges;
         InputPathToGraphByList(amount_edges, graph, is_isolated);
     }
@@ -112,14 +196,13 @@ void Processing()
         return;
     }
 
-    stack<elem_t> euler_path;
+    vector<Vertex> euler_path;
     MakeEulerPath(GetNotIsolatedVertex(is_isolated), graph, euler_path);
 
     cout << euler_path.size();
-    while(!euler_path.empty())
+    for (int i = 0; i < euler_path.size(); ++i)
     {   
-        cout << ' ' << euler_path.top() + 1;
-        euler_path.pop();
+        cout << ' ' << euler_path[i] + 1;
     }
     cout << endl;
 }

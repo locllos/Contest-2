@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <queue>
+#include <algorithm>
 #include <stack>
 
 using std::vector;
@@ -157,6 +158,8 @@ vector<Vertex> getOptimalPath(const IGraph& graph, Vertex start, Vertex end)
     {
         initOptimalPath(end, path, parents);
     }
+    std::reverse(std::begin(path), std::end(path));
+
     return path;
 }
 

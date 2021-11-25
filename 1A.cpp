@@ -185,6 +185,11 @@ void printPath(const vector<Vertex>& path)
         cout << path[i] + 1 << ' ';
     }
     cout << '\n';
+
+    for (auto& vertex : path)
+    {
+        cout << vertex + 1 << ' ';
+    }
 }
 
 void Processing()

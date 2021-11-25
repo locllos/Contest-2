@@ -180,16 +180,12 @@ void printPath(const vector<Vertex>& path)
 {   
     cout << '\n' << path.size() - 1 << '\n';
 
-    for (int i = path.size() - 1; i > - 1; --i)
-    {
-        cout << path[i] + 1 << ' ';
-    }
-    cout << '\n';
-
     for (auto& vertex : path)
     {
         cout << vertex + 1 << ' ';
     }
+    
+    cout << '\n';
 }
 
 void Processing()
